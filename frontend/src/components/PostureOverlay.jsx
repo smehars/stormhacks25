@@ -5,23 +5,23 @@ export default function PostureOverlay({ postureData, canvasSize }) {
 
   const getOverlayInstructions = () => {
     const angle = postureData.angle_deg;
-    
+
     if (angle >= 15) {
       return {
         arrow: "⬆️",
         direction: "Pull chin back significantly",
         color: "text-red-400",
-        intensity: "high"
+        intensity: "high",
       };
     } else if (angle >= 10) {
       return {
-        arrow: "↗️", 
+        arrow: "↗️",
         direction: "Lift head slightly",
         color: "text-yellow-400",
-        intensity: "medium"
+        intensity: "medium",
       };
     }
-    
+
     return null;
   };
 
@@ -41,47 +41,24 @@ export default function PostureOverlay({ postureData, canvasSize }) {
       </div>
 
       {/* Ideal posture guide lines */}
-      <svg 
+      <svg
         className="absolute inset-0 w-full h-full"
-        style={{ transform: 'scaleX(-1)' }} // Mirror to match video
+        style={{ transform: "scaleX(-1)" }} // Mirror to match video
       >
         {/* Ideal head position guide */}
         <defs>
           <pattern id="guideline" patternUnits="userSpaceOnUse" width="4" height="4">
-            <rect width="2" height="2" fill="rgba(34, 197, 94, 0.3)"/>
+            <rect width="2" height="2" fill="rgba(34, 197, 94, 0.3)" />
           </pattern>
         </defs>
-        
+
         {/* Vertical alignment guide */}
-        <line 
-          x1="50%" 
-          y1="20%" 
-          x2="50%" 
-          y2="80%" 
-          stroke="url(#guideline)" 
-          strokeWidth="2"
-          strokeDasharray="5,5"
-        />
-        
+        <line x1="50%" y1="20%" x2="50%" y2="80%" stroke="url(#guideline)" strokeWidth="2" strokeDasharray="5,5" />
+
         {/* Ideal head zone */}
-        <circle 
-          cx="50%" 
-          cy="25%" 
-          r="40" 
-          fill="none" 
-          stroke="rgba(34, 197, 94, 0.4)" 
-          strokeWidth="2"
-          strokeDasharray="3,3"
-        />
-        
-        <text 
-          x="50%" 
-          y="15%" 
-          textAnchor="middle" 
-          fill="rgba(34, 197, 94, 0.8)" 
-          fontSize="12"
-          className="font-medium"
-        >
+        <circle cx="50%" cy="25%" r="40" fill="none" stroke="rgba(34, 197, 94, 0.4)" strokeWidth="2" strokeDasharray="3,3" />
+
+        <text x="50%" y="15%" textAnchor="middle" fill="rgba(34, 197, 94, 0.8)" fontSize="12" className="font-medium">
           Ideal Head Position
         </text>
       </svg>

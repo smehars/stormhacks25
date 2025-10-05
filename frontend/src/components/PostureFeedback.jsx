@@ -10,9 +10,9 @@ export default function PostureFeedback({ postureData, isVisible }) {
 
   const generatePostureFeedback = async (data) => {
     if (!data || isGenerating) return;
-    
+
     setIsGenerating(true);
-    
+
     const prompt = `
     You are a professional posture coach. Analyze this posture data and provide specific, actionable feedback.
     
@@ -35,14 +35,14 @@ export default function PostureFeedback({ postureData, isVisible }) {
 
     try {
       const aiResponse = await runGeminiText(prompt);
-      const [assessment, instruction] = aiResponse.split('|').map(s => s.trim());
-      
+      const [assessment, instruction] = aiResponse.split("|").map((s) => s.trim());
+
       setFeedback({
         assessment: assessment || "Analyzing your posture...",
         instruction: instruction || "Maintain your current position.",
         severity: data.state === "bad_posture" ? "warning" : "good",
         angle: data.angle_deg,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     } catch (error) {
       console.error("Failed to generate posture feedback:", error);
@@ -51,7 +51,7 @@ export default function PostureFeedback({ postureData, isVisible }) {
         instruction: "Keep your head aligned with your shoulders.",
         severity: "neutral",
         angle: data.angle_deg,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     } finally {
       setIsGenerating(false);
@@ -101,15 +101,15 @@ export default function PostureFeedback({ postureData, isVisible }) {
       {/* Feedback Alert */}
       <Alert className={`${getFeedbackStyle()} border backdrop-blur-sm`}>
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
         </svg>
-        <AlertTitle className="text-sm font-medium">
-          {feedback.assessment}
-        </AlertTitle>
-        <AlertDescription className="text-xs mt-1 leading-relaxed">
-          💡 {feedback.instruction}
-        </AlertDescription>
+        <AlertTitle className="text-sm font-medium">{feedback.assessment}</AlertTitle>
+        <AlertDescription className="text-xs mt-1 leading-relaxed">💡 {feedback.instruction}</AlertDescription>
       </Alert>
 
       {/* Loading Indicator */}
