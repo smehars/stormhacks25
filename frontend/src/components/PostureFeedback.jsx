@@ -69,8 +69,6 @@ export default function PostureFeedback({ postureData, isVisible }) {
     }
   }, [postureData, isVisible]);
 
-  if (!isVisible || !feedback) return null;
-
   const getFeedbackStyle = () => {
     switch (feedback.severity) {
       case "warning":
@@ -82,22 +80,10 @@ export default function PostureFeedback({ postureData, isVisible }) {
     }
   };
 
-  const getAngleColor = () => {
-    if (feedback.angle >= 15) return "text-red-400";
-    if (feedback.angle >= 10) return "text-yellow-400";
-    return "text-green-400";
-  };
+  if (!isVisible || !feedback) return null;
 
   return (
     <div className="space-y-3">
-      {/* Angle Display */}
-      <div className="flex items-center justify-between bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-        <span className="text-white/80 text-sm">Forward Head Angle</span>
-        <Badge variant="outline" className={`${getAngleColor()} border-current bg-black/30`}>
-          {feedback.angle.toFixed(1)}°
-        </Badge>
-      </div>
-
       {/* Feedback Alert */}
       <Alert className={`${getFeedbackStyle()} border backdrop-blur-sm`}>
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

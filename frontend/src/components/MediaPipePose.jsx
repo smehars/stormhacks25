@@ -3,7 +3,6 @@ import { PoseLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import PostureFeedback from "./PostureFeedback";
-import PostureOverlay from "./PostureOverlay";
 
 async function sendLandmarksToBackend(landmarks) {
   const formattedLandmarks = landmarks.map((lm, idx) => ({
@@ -230,7 +229,7 @@ export default function MediaPipePose() {
         autoPlay 
         className="absolute inset-0 w-full h-full object-cover"
         style={{ 
-          transform: webcamRunning ? 'scaleX(-1)' : 'none' // Mirror the video like a selfie camera
+          transform: webcamRunning ? 'scaleX(-1)' : 'none'
         }}
       />
       
@@ -239,14 +238,9 @@ export default function MediaPipePose() {
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none"
         style={{ 
-          transform: webcamRunning ? 'scaleX(-1)' : 'none' // Mirror the canvas too
+          transform: webcamRunning ? 'scaleX(-1)' : 'none'
         }}
       />
-
-      {/* Posture Overlay */}
-      {webcamRunning && (
-        <PostureOverlay postureData={postureData} canvasSize={canvasSize} />
-      )}
 
       {/* Dark overlay when camera is off */}
       {!webcamRunning && (
@@ -324,14 +318,6 @@ export default function MediaPipePose() {
             {webcamRunning ? "Stop Analysis" : "Start Analysis"}
           </Button>
         </div>
-
-        {webcamRunning && (
-          <div className="mt-4 text-center">
-            <p className="text-white/80 text-sm backdrop-blur-sm bg-black/30 px-4 py-2 rounded-full inline-block">
-              Red dots show key landmarks • Green lines show connections
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Posture Feedback Panel - Left Side */}
