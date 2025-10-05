@@ -5,7 +5,7 @@ function App() {
 
   return (
     <div className="min-h-screen">
-      <MediaPipePose />
+      <MediaPipePose/>
     </div>
   );
 }
