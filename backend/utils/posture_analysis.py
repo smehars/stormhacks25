@@ -9,7 +9,7 @@ SEND_RATE = 3
 CONSECUTIVE_BAD_REQUIRED = 3
 CONSECUTIVE_GOOD_REQUIRED = 2
 VISIBILITY_THRESHOLD = 0.7
-FORWARD_TILT_THRESHOLD = 10``.0 #degree
+FORWARD_TILT_THRESHOLD = 10.0 #degree
 
 #internal memory we will manipulate 
 angle_buffer = deque(maxlen=POINT_WINDOW)
