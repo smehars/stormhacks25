@@ -1,10 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { runGeminiText } from "@/gemini/gemini";
 import MediaPipePose from "./components/MediaPipePose.jsx";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
 
 function App() {
   const [showPose, setShowPose] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const answer = await runGeminiText("Say hi");
+        console.log("Gemini response:", answer);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
