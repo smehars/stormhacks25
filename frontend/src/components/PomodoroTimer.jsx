@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 
-export default function PomodoroTimer() {
+const PomodoroTimer = forwardRef((props, ref) => {
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes  
   const [isRunning, setIsRunning] = useState(false);
   const [cycles, setCycles] = useState(0);
@@ -11,6 +11,20 @@ export default function PomodoroTimer() {
 
   // Timer configurations
   const WORK_TIME = 25 * 60; // 25 minutes
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    startTimer: () => {
+      console.log("Starting timer via gesture control");
+      setIsRunning(true);
+    },
+    stopTimer: () => setIsRunning(false),
+    resetTimer: () => {
+      setIsRunning(false);
+      setTimeLeft(WORK_TIME);
+    },
+    isTimerRunning: () => isRunning
+  }));
 
   // Timer logic
   useEffect(() => {
@@ -69,6 +83,7 @@ export default function PomodoroTimer() {
 
   return (
     <>
+      {/* Alert modal remains the same */}
       {showAlert && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[9999] animate-in fade-in-0 duration-300">
           <div className="relative bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-xl border border-emerald-500/30 rounded-2xl p-6 max-w-sm mx-4 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-4 duration-500">
@@ -86,23 +101,17 @@ export default function PomodoroTimer() {
                 </div>
 
                 <h2 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent mb-2">
-                  Session Complete! 
+                  Session Complete! 🍅
                 </h2>
 
                 <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                  Great work! You've completed <span className="font-bold text-emerald-400">{cycles}</span> session{cycles > 1 ? "s" : ""}{" "}
-                  today.
+                  Great work! You've completed <span className="font-bold text-emerald-400">{cycles}</span> session{cycles > 1 ? "s" : ""} today.
                 </p>
 
                 <div className="bg-gradient-to-r from-slate-800/80 to-slate-700/80 border border-slate-600/50 rounded-xl p-3 mb-4">
                   <div className="flex items-center justify-center gap-2 mb-1">
                     <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span className="text-blue-400 font-medium text-sm">Take a Break</span>
                   </div>
@@ -110,7 +119,6 @@ export default function PomodoroTimer() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="space-y-2">
                 <Button
                   onClick={closeAlert}
@@ -131,12 +139,7 @@ export default function PomodoroTimer() {
                   className="w-full bg-slate-800/50 border-slate-600/50 text-slate-300 hover:bg-slate-700/50 hover:text-white hover:border-slate-500 transition-all duration-300 h-9 text-sm"
                 >
                   <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Start Next
                 </Button>
@@ -146,9 +149,8 @@ export default function PomodoroTimer() {
         </div>
       )}
 
-      {/* Timer Component */}
+      {/* Timer Component - rest remains the same */}
       <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 min-w-[280px] shadow-2xl">
-        {/* Timer Display */}
         <div className="text-center mb-6">
           <div className="flex items-center justify-center gap-2 mb-4">
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
@@ -161,7 +163,6 @@ export default function PomodoroTimer() {
             {formatTime(timeLeft)}
           </div>
 
-          {/* Progress Bar */}
           <div className="relative w-full bg-slate-700/50 rounded-full h-3 mb-4 overflow-hidden">
             <div
               className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-blue-500 rounded-full transition-all duration-1000 ease-out shadow-lg"
@@ -178,7 +179,6 @@ export default function PomodoroTimer() {
           </div>
         </div>
 
-        {/* Control Buttons */}
         <div className="grid grid-cols-3 gap-3">
           <Button
             onClick={startTimer}
@@ -228,4 +228,6 @@ export default function PomodoroTimer() {
       </div>
     </>
   );
-}
+});
+
+export default PomodoroTimer;

@@ -3,6 +3,7 @@ import { PoseLandmarker, FilesetResolver, DrawingUtils } from "@mediapipe/tasks-
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import PomodoroTimer from "./PomodoroTimer";
+import HandGestureDetector from "./HandGestureDetector";
 
 async function sendLandmarksToBackend(landmarks) {
   const formattedLandmarks = landmarks.map((lm, idx) => ({
@@ -16,7 +17,7 @@ async function sendLandmarksToBackend(landmarks) {
   try {
     const response = await fetch("http://localhost:3000/analyze_posture", {
       method: "POST",
-      headers: {"Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ landmarks: formattedLandmarks }),
     });
 
@@ -37,10 +38,12 @@ async function sendLandmarksToBackend(landmarks) {
 export default function MediaPipePose() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const pomodoroRef = useRef(null); // Add ref for Pomodoro timer
 
   const [poseLandmarker, setPoseLandmarker] = useState(null);
   const [webcamRunning, setWebcamRunning] = useState(false);
   const [showPomodoro, setShowPomodoro] = useState(false);
+  const [handGestureEnabled, setHandGestureEnabled] = useState(true); // New state
 
   // read/write flag safely inside rAF loop
   const runningRef = useRef(false);
@@ -58,7 +61,55 @@ export default function MediaPipePose() {
     LEFT_EAR: 7,
     RIGHT_EAR: 8,
     LEFT_SHOULDER: 11,
-    RIGHT_SHOULDER: 12
+    RIGHT_SHOULDER: 12,
+  };
+
+  // Handle hand gesture detection
+  const handleGestureDetected = (gestureType) => {
+    if (gestureType === "START_POMODORO" && pomodoroRef.current) {
+      console.log("✊ Closed fist gesture detected! Starting Pomodoro timer...");
+
+      // Show Pomodoro timer if it's hidden
+      if (!showPomodoro) {
+        setShowPomodoro(true);
+      }
+
+      // Start the timer via ref
+      pomodoroRef.current.startTimer();
+
+      // Show success feedback
+      showGestureSuccessNotification();
+    }
+  };
+
+  const showGestureSuccessNotification = () => {
+    // Create a temporary notification
+    const notification = document.createElement("div");
+    notification.className =
+      "fixed top-20 right-6 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-in slide-in-from-right-4 duration-300";
+    notification.innerHTML = `
+      <div class="flex items-center gap-3">
+        <div class="text-xl">🍅</div>
+        <div>
+          <div class="font-medium">Pomodoro Started!</div>
+          <div class="text-sm opacity-90">Hand gesture detected</div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        notification.style.animation = "slide-out-to-right-4 0.3s ease-in-out forwards";
+        setTimeout(() => {
+          if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+          }
+        }, 300);
+      }
+    }, 3000);
   };
 
   // Loading the model via Googles API
@@ -150,7 +201,7 @@ export default function MediaPipePose() {
           leftEar: landmarks[SELECTED_LANDMARKS.LEFT_EAR],
           rightEar: landmarks[SELECTED_LANDMARKS.RIGHT_EAR],
           leftShoulder: landmarks[SELECTED_LANDMARKS.LEFT_SHOULDER],
-          rightShoulder: landmarks[SELECTED_LANDMARKS.RIGHT_SHOULDER]
+          rightShoulder: landmarks[SELECTED_LANDMARKS.RIGHT_SHOULDER],
         });
 
         const analysis = await sendLandmarksToBackend(res.landmarks[0]);
@@ -165,14 +216,14 @@ export default function MediaPipePose() {
 
       if (res.landmarks?.length) {
         const landmarks = res.landmarks[0];
-        
+
         // Draw only the selected landmarks
-        Object.values(SELECTED_LANDMARKS).forEach(index => {
+        Object.values(SELECTED_LANDMARKS).forEach((index) => {
           const landmark = landmarks[index];
           if (landmark && landmark.visibility > 0.5) {
             const x = landmark.x * canvas.width;
             const y = landmark.y * canvas.height;
-            
+
             // Draw landmark point
             ctx.beginPath();
             ctx.arc(x, y, 6, 0, 2 * Math.PI);
@@ -181,7 +232,7 @@ export default function MediaPipePose() {
             ctx.strokeStyle = "#FEE2E2"; // Light red border
             ctx.lineWidth = 2;
             ctx.stroke();
-            
+
             // Draw landmark label
             ctx.font = "12px Arial";
             ctx.fillStyle = "yellow";
@@ -208,17 +259,23 @@ export default function MediaPipePose() {
           const rightShoulder = landmarks[SELECTED_LANDMARKS.RIGHT_SHOULDER];
           const nose = landmarks[SELECTED_LANDMARKS.NOSE];
 
-          if (leftShoulder && rightShoulder && nose &&
-            leftShoulder.visibility > 0.5 && rightShoulder.visibility > 0.5 && nose.visibility > 0.5) {
-              const midX = (leftShoulder.x + rightShoulder.x) / 2;
-              const midY = (leftShoulder.y + rightShoulder.y) / 2;
-              ctx.beginPath();
-              ctx.moveTo(midX * canvas.width, midY * canvas.height);
-              ctx.lineTo(nose.x * canvas.width, nose.y * canvas.height);
-              ctx.strokeStyle = "#3B82F6";
-              ctx.lineWidth = 3;
-              ctx.stroke();
-            }
+          if (
+            leftShoulder &&
+            rightShoulder &&
+            nose &&
+            leftShoulder.visibility > 0.5 &&
+            rightShoulder.visibility > 0.5 &&
+            nose.visibility > 0.5
+          ) {
+            const midX = (leftShoulder.x + rightShoulder.x) / 2;
+            const midY = (leftShoulder.y + rightShoulder.y) / 2;
+            ctx.beginPath();
+            ctx.moveTo(midX * canvas.width, midY * canvas.height);
+            ctx.lineTo(nose.x * canvas.width, nose.y * canvas.height);
+            ctx.strokeStyle = "#3B82F6";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+          }
         };
 
         // Draw connections: nose to ears, ears to shoulders
@@ -238,25 +295,28 @@ export default function MediaPipePose() {
   return (
     <div className="fixed inset-0 bg-black">
       {/* Full-screen video background */}
-      <video 
-        ref={videoRef} 
-        muted 
-        playsInline 
-        autoPlay 
+      <video
+        ref={videoRef}
+        muted
+        playsInline
+        autoPlay
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ 
-          transform: webcamRunning ? 'scaleX(-1)' : 'none' // Mirror the video like a selfie camera
+        style={{
+          transform: webcamRunning ? "scaleX(-1)" : "none", // Mirror the video like a selfie camera
         }}
       />
-      
+
       {/* Full-screen canvas overlay for landmarks */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ 
-          transform: webcamRunning ? 'scaleX(-1)' : 'none' // Mirror the canvas too
+        style={{
+          transform: webcamRunning ? "scaleX(-1)" : "none", // Mirror the canvas too
         }}
       />
+
+      {/* Hand Gesture Detector */}
+      <HandGestureDetector videoRef={videoRef} onGestureDetected={handleGestureDetected} isActive={webcamRunning && handGestureEnabled} />
 
       {/* Dark overlay when camera is off */}
       {!webcamRunning && (
@@ -278,27 +338,22 @@ export default function MediaPipePose() {
 
       {/* Floating Pomodoro Timer - Right Side */}
       <div className="absolute right-6 top-1/2 transform -translate-y-1/2 z-20">
-        <div className={`transition-all duration-300 ease-in-out ${
-          showPomodoro ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-        }`}>
-          {showPomodoro && <PomodoroTimer />}
+        <div
+          className={`transition-all duration-300 ease-in-out ${showPomodoro ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}`}
+        >
+          {showPomodoro && <PomodoroTimer ref={pomodoroRef} />}
         </div>
-        
+
         {/* Toggle Button */}
         <Button
           onClick={() => setShowPomodoro(!showPomodoro)}
-          className={`absolute ${showPomodoro ? '-left-12' : '-left-12'} top-1/2 transform -translate-y-1/2 
+          className={`absolute ${showPomodoro ? "-left-12" : "-left-12"} top-1/2 transform -translate-y-1/2 
             w-10 h-16 rounded-l-xl rounded-r-none bg-gradient-to-b from-blue-500/90 to-teal-500/90 
 hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0 
             flex items-center justify-center transition-all duration-300`}
         >
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" 
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </Button>
       </div>
@@ -329,6 +384,21 @@ hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0
                 Skeleton Model: {poseLandmarker ? "Ready" : "Loading..."}
               </Badge>
             </div>
+
+            {/* Hand Gesture Toggle */}
+            <Button
+              onClick={() => setHandGestureEnabled(!handGestureEnabled)}
+              variant="outline"
+              size="sm"
+              className={`px-3 py-1 ${
+                handGestureEnabled
+                  ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                  : "bg-slate-500/20 border-slate-500/50 text-slate-400"
+              } hover:bg-opacity-30`}
+            >
+              <span className="text-lg mr-2">✊</span>
+              Hand Gestures: {handGestureEnabled ? "ON" : "OFF"}
+            </Button>
           </div>
         </div>
       </div>
@@ -365,7 +435,8 @@ hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0
         {webcamRunning && (
           <div className="mt-4 text-center">
             <p className="text-white/80 text-sm backdrop-blur-sm bg-black/30 px-4 py-2 rounded-full inline-block">
-              Red dots show key landmarks • Green lines show connections
+              Red dots show key landmarks • Green lines show connections •{" "}
+              {handGestureEnabled ? "✊ Hold closed fist for 5s to start timer" : "Hand gestures disabled"}
             </p>
           </div>
         )}
