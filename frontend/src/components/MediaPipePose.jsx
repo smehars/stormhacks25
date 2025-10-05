@@ -37,6 +37,13 @@ export default function MediaPipePose() {
     })();
   }, []);
 
+  useEffect(() => {
+  fetch("http://api:3000/")
+    .then((res) => res.json())
+    .then(console.log)
+    .catch(console.error);
+}, []);
+
   // Turn off our UI flagg and set the live video stream back to a Image
   const stopCamera = () => {
     setWebcamRunning(false);
@@ -101,6 +108,34 @@ export default function MediaPipePose() {
     if (lastVideoTimeRef.current !== video.currentTime) {
       lastVideoTimeRef.current = video.currentTime;
       const res = await poseLandmarker.detectForVideo(video, ts);
+      if(res.landmarks?.length){
+        const body = {
+          landmarks: res.landmarks[0].map((lm, idx) => ({
+            idx,
+            x: lm.x,
+            y: lm.y,
+            z: lm.z,
+            visibility: lm.visibility ?? 1.0,
+          })),
+        };
+        try{
+          const response = await fetch("http://api:3000/analyze_posture", {
+            method: "POST",
+            headers: {"Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+
+          if(response.ok) {
+            const data = await response.json();
+            console.log("Posture analysis:", data);
+            // todo: update UI with data.state or data.angle_deg
+          }else{
+            console.error("Backend error:", response.status);
+          }
+        } catch (err){
+          console.error("Failed to send posture data:", err);
+        }
+      }
 
       const ctx = canvas.getContext("2d");
       const utils = new DrawingUtils(ctx);
