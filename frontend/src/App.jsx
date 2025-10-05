@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { runGeminiText } from "@/gemini/gemini";
 import MediaPipePose from "./components/MediaPipePose.jsx";
+import PostureCoach from "./components/PostureCoach.jsx";
 
 function App() {
+
   const [showPose, setShowPose] = useState(false);
 
   useEffect(() => {
@@ -18,7 +20,7 @@ function App() {
 
   return (
     <div className="min-h-screen">
-      <MediaPipePose />
+      <PostureCoach />
     </div>
   );
 }
