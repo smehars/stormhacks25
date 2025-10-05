@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import MediaPipePose from "./components/MediaPipePose.jsx";
 
 function App() {

@@ -40,7 +40,6 @@ export default function MediaPipePose() {
   const [poseLandmarker, setPoseLandmarker] = useState(null);
   const [webcamRunning, setWebcamRunning] = useState(false);
   const [postureData, setPostureData] = useState(null);
-  const [showFeedback, setShowFeedback] = useState(true);
   const [panelCollapsed, setPanelCollapsed] = useState(false); // Default to expanded (false)
 
   const runningRef = useRef(false);
@@ -233,8 +232,6 @@ export default function MediaPipePose() {
       
       if (response.ok) {
         const data = await response.json();
-        //console.log("Calibrated neutral offset:", data);
-        // Optionally show a success message
       } else {
         console.error("Calibration failed:", response.status);
       }

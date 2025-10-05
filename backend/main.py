@@ -21,10 +21,6 @@ app.add_middleware(
     allow_headers=["*"],   
 )
 
-@app.route("/")
-def home():
-    return "Backend connected successfully."
-
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
