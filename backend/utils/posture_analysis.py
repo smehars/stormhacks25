@@ -1,4 +1,3 @@
-print("goonsquad")
 import math
 from collections import deque
 from typing import List, Optional, Dict
@@ -13,7 +12,7 @@ VISIBILITY_THRESHOLD = 0.3
 FORWARD_TILT_THRESHOLD = 10.0 #degree
 
 #internal memory we will manipulate 
-angle_buffer = deque(maxlen=SMOOTH_WINDOW)
+angle_buffer = deque(maxlen=POINT_WINDOW)
 buffer_lock = threading.Lock()
 last_angle: Optional[float] = None
 neutral_offset: float = 0.0
@@ -31,7 +30,7 @@ LEFT_EAR = 7
 RIGHT_EAR = 8
 
 #helper functions
-def find_landmark(landmarks: List[dict], idx: int)
+def find_landmark(landmarks: List[dict], idx: int):
     return next((p for p in landmarks if p["idx"] == idx), None)
 
 def check_vis(lm:Dict) -> bool: ##come back to this might be wrong, feel like if it detects one bad vis, it will return none
@@ -45,7 +44,7 @@ def raw_head_angle_degrees(landmarks: List[Dict]) -> Optional[float]:
     #le = find_landmark(landmarks, LEFT_EAR)
     #re = find_landmark(landmarks, RIGHT_EAR)
 
-    if not (check_vis(ls) and check_vis(rs) and check_vis(nose) and (check_vis(le) or check_vis(re))):
+    if not (check_vis(ls) and check_vis(rs) and check_vis(nose)): #and (check_vis(le) or check_vis(re))):
         return None
     
     sx = (ls["x"] + rs["x"]) / 2.0
@@ -57,7 +56,7 @@ def raw_head_angle_degrees(landmarks: List[Dict]) -> Optional[float]:
     dx = nx - sx
     dy = ny - sy
 #calculates how much your neck is tilted forward
-    if dy == 0
+    if dy == 0:
         dy = 1e-6 #prevent div by 0, due to the math formula below
 
     angle_rad = math.atan2(dx, dy)  
@@ -71,33 +70,22 @@ def shoulder_angle_difference(landmarks: List[Dict]) -> Optional[float]:
 
     if not (check_vis(ls) and check_vis(rs)):
         return None
-    return abs[ls["y"] - rs["y"]]
+    return abs(ls["y"] - rs["y"])
    ## come back to this we can add more to track how often we lean to one side
 
 #public api
 
-def analyze_upper_body(landmarks: List[Dict]) -> Dict:
-
-
-    if dx == 0:
-        dx = 1e-6 #prevent div by 0, due to the math formula below
-
-    angle_rad = math.atan2(dy, dx)
-    angle_deg = math.degrees(angle_rad)
-    return angle_deg
-
-last_angle: Optional[float] = None #global variable
-
-def avg_point(landmarks: List[dict], idx1: int, idx2: 2):
+def avg_point(landmarks: List[dict], indx1: int, indx2: int):
     p1 = next((p for p in landmarks if p["idx"] == indx1), None)
     p2 = next((p for p in landmarks if p["idx"] == indx2), None)
     if p1 and p2:
         return {
-         ((p1["x"] + p2["x"]) / 2.0, (p1["y"] + p2["y"]) / 2.0)
+            "x": (p1["x"] + p2["x"]) / 2.0,
+            "y": (p1["y"] + p2["y"]) / 2.0
         }
     return None
 
-def analyze_landmarks(landmarks: List[dict]) -> Dict:
+def analyze_upper_body(landmarks: List[dict]) -> Dict:
 
     global last_angle, bad_streak, good_streak, current_state, neutral_offset 
 
@@ -114,7 +102,7 @@ def analyze_landmarks(landmarks: List[dict]) -> Dict:
     last_angle = smooth
 
     #simple checks 
-    shoulder_angle_difference = shoulder_angle_difference(landmarks)
+    shoulder_diff = shoulder_angle_difference(landmarks)
     reason = "forward_head" if smooth >= FORWARD_TILT_THRESHOLD else "good_posture"
 
     if smooth >= FORWARD_TILT_THRESHOLD:
@@ -125,7 +113,7 @@ def analyze_landmarks(landmarks: List[dict]) -> Dict:
         bad_streak = 0
 
     #detect current status
-    if bad_streak >= CONSECUTIVE_BAD_REQUIRED
+    if bad_streak >= CONSECUTIVE_BAD_REQUIRED:
         current_state = "bad_posture"
     elif good_streak >= CONSECUTIVE_GOOD_REQUIRED:
         current_state = "good_posture"
@@ -135,23 +123,14 @@ def analyze_landmarks(landmarks: List[dict]) -> Dict:
         "raw_angle_deg": round(raw_angle, 2),
         "state": current_state,
         "reason": reason,
-        "shoulder_level_diff": round(shoulder_angle_difference, 4) if shoulder_angle_difference is not None else None
+        "shoulder_level_diff": round(shoulder_diff, 4) if shoulder_diff is not None else None
     }
     return response
 
-def set_neutral_offset(angle):
+def set_neutral_offset(angle_deg: float):
     global neutral_offset
-    with state_lock:
-        neutral_offset = angle
+    with buffer_lock:
+        neutral_offset = float(angle_deg)
 
- 
-
-
-
-
-
-
-
-
-
-
+def last_angle_value()->Optional[float]:
+    return last_angle
