@@ -1,25 +1,31 @@
-import { useState } from 'react'
-import './App.css'
+import { useState } from "react";
+import MediaPipePose from "./components/MediaPipePose.jsx";
+import { Button } from "./components/ui/button";
+import { Badge } from "./components/ui/badge";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [showPose, setShowPose] = useState(false);
 
   return (
-    <>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="container mx-auto p-8">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-4">StormHacks 2025</h1>
+          <Badge variant="outline" className="text-lg px-4 py-2">
+            Pose Detection System
+          </Badge>
+        </div>
+
+        <div className="text-center mb-8">
+          <Button onClick={() => setShowPose(!showPose)} size="lg" variant={showPose ? "destructive" : "default"}>
+            {showPose ? "Hide" : "Show"} Pose Detection
+          </Button>
+        </div>
+
+        {showPose && <MediaPipePose />}
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </div>
+  );
 }
 
-export default App
+export default App;
