@@ -1,8 +1,9 @@
 import React, { useRef, useEffect, useState } from "react";
-import { PoseLandmarker, FilesetResolver, DrawingUtils } from "@mediapipe/tasks-vision";
+import { PoseLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import PomodoroTimer from "./PomodoroTimer";
+import PostureFeedback from "./PostureFeedback";
 
 async function sendLandmarksToBackend(landmarks) {
   const formattedLandmarks = landmarks.map((lm, idx) => ({
@@ -22,7 +23,6 @@ async function sendLandmarksToBackend(landmarks) {
 
     if (response.ok) {
       const data = await response.json();
-      console.log("Posture analysis:", data);
       return data;
     } else {
       console.error("Backend error:", response.status);
@@ -41,8 +41,9 @@ export default function MediaPipePose() {
   const [poseLandmarker, setPoseLandmarker] = useState(null);
   const [webcamRunning, setWebcamRunning] = useState(false);
   const [showPomodoro, setShowPomodoro] = useState(false);
+  const [postureData, setPostureData] = useState(null);
+  const [panelCollapsed, setPanelCollapsed] = useState(false); // Default to expanded (false)
 
-  // read/write flag safely inside rAF loop
   const runningRef = useRef(false);
   useEffect(() => {
     runningRef.current = webcamRunning;
@@ -52,7 +53,6 @@ export default function MediaPipePose() {
   const lastVideoTimeRef = useRef(-1);
   const rafId = useRef(null);
 
-  // Define the landmarks we want to show
   const SELECTED_LANDMARKS = {
     NOSE: 0,
     LEFT_EAR: 7,
@@ -61,24 +61,25 @@ export default function MediaPipePose() {
     RIGHT_SHOULDER: 12
   };
 
-  // Loading the model via Googles API
   useEffect(() => {
     (async () => {
       const wasm = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
       const landmarker = await PoseLandmarker.createFromOptions(wasm, {
         baseOptions: {
           modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task",
           delegate: "GPU",
         },
-        runningMode: "IMAGE",
-        numPoses: 2,
+        runningMode: "VIDEO", // Start in VIDEO mode
+        numPoses: 1,
+        minPoseDetectionConfidence: 0.3,
+        minPosePresenceConfidence: 0.3,
+        minTrackingConfidence: 0.8,
       });
       setPoseLandmarker(landmarker);
     })();
   }, []);
 
-  // Turn off our UI flagg and set the live video stream back to a Image
   const stopCamera = () => {
     setWebcamRunning(false);
     runningModeRef.current = "IMAGE";
@@ -91,6 +92,7 @@ export default function MediaPipePose() {
     }
     const c = canvasRef.current;
     c?.getContext("2d")?.clearRect(0, 0, c.width, c.height);
+    setPostureData(null);
   };
 
   const startCamera = async () => {
@@ -101,7 +103,6 @@ export default function MediaPipePose() {
       const video = videoRef.current;
       video.srcObject = stream;
 
-      // start after metadata so videoWidth/Height are known
       const start = async () => {
         await video.play().catch(() => {});
         predictWebcam();
@@ -126,13 +127,11 @@ export default function MediaPipePose() {
     if (!video || !canvas || !poseLandmarker) return;
     if (!runningRef.current) return;
 
-    // size canvas to the actual video frame
     const vw = video.videoWidth || 480,
       vh = video.videoHeight || 360;
     if (canvas.width !== vw) canvas.width = vw;
     if (canvas.height !== vh) canvas.height = vh;
-
-    // switch to VIDEO mode once
+    
     if (runningModeRef.current === "IMAGE") {
       runningModeRef.current = "VIDEO";
       await poseLandmarker.setOptions({ runningMode: "VIDEO" });
@@ -143,19 +142,13 @@ export default function MediaPipePose() {
       lastVideoTimeRef.current = video.currentTime;
       const res = await poseLandmarker.detectForVideo(video, ts);
       if (res.landmarks?.length) {
-        // Log only the selected landmarks
         const landmarks = res.landmarks[0];
-        console.log("Selected Landmarks:", {
-          nose: landmarks[SELECTED_LANDMARKS.NOSE],
-          leftEar: landmarks[SELECTED_LANDMARKS.LEFT_EAR],
-          rightEar: landmarks[SELECTED_LANDMARKS.RIGHT_EAR],
-          leftShoulder: landmarks[SELECTED_LANDMARKS.LEFT_SHOULDER],
-          rightShoulder: landmarks[SELECTED_LANDMARKS.RIGHT_SHOULDER]
-        });
-
+        
+        // Send to backend and update posture data
         const analysis = await sendLandmarksToBackend(res.landmarks[0]);
         if (analysis) {
-          console.log("Posture result:", analysis);
+          //console.log("Posture result:", analysis);
+          setPostureData(analysis); // Update state with analysis data
         }
       }
 
@@ -166,38 +159,34 @@ export default function MediaPipePose() {
       if (res.landmarks?.length) {
         const landmarks = res.landmarks[0];
         
-        // Draw only the selected landmarks
         Object.values(SELECTED_LANDMARKS).forEach(index => {
           const landmark = landmarks[index];
           if (landmark && landmark.visibility > 0.5) {
             const x = landmark.x * canvas.width;
             const y = landmark.y * canvas.height;
             
-            // Draw landmark point
             ctx.beginPath();
             ctx.arc(x, y, 6, 0, 2 * Math.PI);
-            ctx.fillStyle = "#EF4444"; // Red
+            ctx.fillStyle = "#EF4444";
             ctx.fill();
-            ctx.strokeStyle = "#FEE2E2"; // Light red border
+            ctx.strokeStyle = "#FEE2E2";
             ctx.lineWidth = 2;
             ctx.stroke();
             
-            // Draw landmark label
             ctx.font = "12px Arial";
             ctx.fillStyle = "yellow";
             ctx.fillText(index.toString(), x + 8, y - 8);
           }
         });
 
-        // Draw connections between specific landmarks
         const drawConnection = (fromIndex, toIndex) => {
           const from = landmarks[fromIndex];
           const to = landmarks[toIndex];
-          if (from && to && from.visibility > 0.5 && to.visibility > 0.5) {
+          if (from && to && from.visibility > 0.7 && to.visibility > 0.7) {
             ctx.beginPath();
             ctx.moveTo(from.x * canvas.width, from.y * canvas.height);
             ctx.lineTo(to.x * canvas.width, to.y * canvas.height);
-            ctx.strokeStyle = "#10B981"; // Emerald green
+            ctx.strokeStyle = "#10B981";
             ctx.lineWidth = 3;
             ctx.stroke();
           }
@@ -209,7 +198,7 @@ export default function MediaPipePose() {
           const nose = landmarks[SELECTED_LANDMARKS.NOSE];
 
           if (leftShoulder && rightShoulder && nose &&
-            leftShoulder.visibility > 0.5 && rightShoulder.visibility > 0.5 && nose.visibility > 0.5) {
+            leftShoulder.visibility > 0.7 && rightShoulder.visibility > 0.7 && nose.visibility > 0.7) {
               const midX = (leftShoulder.x + rightShoulder.x) / 2;
               const midY = (leftShoulder.y + rightShoulder.y) / 2;
               ctx.beginPath();
@@ -221,11 +210,8 @@ export default function MediaPipePose() {
             }
         };
 
-        // Draw connections: nose to ears, ears to shoulders
         drawConnection(SELECTED_LANDMARKS.NOSE, SELECTED_LANDMARKS.LEFT_EAR);
         drawConnection(SELECTED_LANDMARKS.NOSE, SELECTED_LANDMARKS.RIGHT_EAR);
-        //drawConnection(SELECTED_LANDMARKS.LEFT_EAR, SELECTED_LANDMARKS.LEFT_SHOULDER);
-        //drawConnection(SELECTED_LANDMARKS.RIGHT_EAR, SELECTED_LANDMARKS.RIGHT_SHOULDER);
         drawConnection(SELECTED_LANDMARKS.LEFT_SHOULDER, SELECTED_LANDMARKS.RIGHT_SHOULDER);
         drawShoulderMidpointToNose();
       }
@@ -233,6 +219,27 @@ export default function MediaPipePose() {
     }
 
     if (runningRef.current) rafId.current = requestAnimationFrame(predictWebcam);
+  };
+
+  // Add calibrate function
+  const calibrateNeutral = async () => {
+    if (!postureData?.raw_angle_deg) return;
+    
+    try {
+      const response = await fetch("http://localhost:3000/calibrate", {
+        method: "POST",
+        headers: {"Content-Type": "application/json" },
+        body: JSON.stringify({ angle_deg: postureData.raw_angle_deg }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+      } else {
+        console.error("Calibration failed:", response.status);
+      }
+    } catch (err) {
+      console.error("Failed to calibrate:", err);
+    }
   };
 
   return (
@@ -245,7 +252,7 @@ export default function MediaPipePose() {
         autoPlay 
         className="absolute inset-0 w-full h-full object-cover"
         style={{ 
-          transform: webcamRunning ? 'scaleX(-1)' : 'none' // Mirror the video like a selfie camera
+          transform: webcamRunning ? 'scaleX(-1)' : 'none'
         }}
       />
       
@@ -254,7 +261,7 @@ export default function MediaPipePose() {
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none"
         style={{ 
-          transform: webcamRunning ? 'scaleX(-1)' : 'none' // Mirror the canvas too
+          transform: webcamRunning ? 'scaleX(-1)' : 'none'
         }}
       />
 
@@ -318,7 +325,7 @@ hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0
                 />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-white">PosturePal</h1>
+            <h1 className="text-2xl font-bold text-white">Lock In</h1>
           </div>
 
           {/* Status Indicators */}
@@ -333,8 +340,91 @@ hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0
         </div>
       </div>
 
+      {/* Compact Square Posture Panel - Top Left */}
+      {webcamRunning && postureData && (
+        <div className={`absolute top-24 left-6 bg-black/70 backdrop-blur-md rounded-xl border border-white/20 text-white transition-all duration-300 z-10 ${
+          panelCollapsed ? 'w-16 h-16 p-2' : 'w-80 p-4'
+        }`}>
+          
+          {/* Panel Header with Status Circle and Minimize Button */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-3 h-3 rounded-full ${
+                postureData.state === 'good_posture' ? 'bg-green-500' : 
+                postureData.state === 'bad_posture' ? 'bg-red-500' : 'bg-yellow-500'
+              }`}></div>
+              {!panelCollapsed && <h3 className="text-lg font-semibold">Posture Analysis</h3>}
+            </div>
+            
+            {/* Minimize/Expand Button */}
+            <Button
+              onClick={() => setPanelCollapsed(!panelCollapsed)}
+              variant="ghost"
+              size="sm"
+              className="text-white/70 hover:text-white hover:bg-white/10 h-6 w-6 rounded-full p-0"
+            >
+              {panelCollapsed ? (
+                // Expand icon (plus)
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              ) : (
+                // Minimize icon (minus)
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
+                </svg>
+              )}
+            </Button>
+          </div>
+          
+          {/* Panel Content - Only show when not collapsed */}
+          {!panelCollapsed && (
+            <div className="space-y-3">
+              {/* Posture Status */}
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-white/70">Status:</span>
+                <Badge 
+                  variant={postureData.state === 'good_posture' ? 'default' : 'destructive'} 
+                  className={`px-2 py-1 ${
+                    postureData.state === 'good_posture' 
+                      ? 'bg-green-500/20 text-green-400 border-green-500/30' 
+                      : postureData.state === 'bad_posture'
+                      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                      : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                  }`}
+                >
+                  {postureData.state?.replace('_', ' ').toUpperCase() || 'UNKNOWN'}
+                </Badge>
+              </div>
+
+              {/* Issue/Reason */}
+              <div className="pt-2 border-t border-white/10">
+                <span className="text-xs text-white/50">Issue: </span>
+                <span className="text-xs text-white/80 capitalize">
+                  {postureData.reason?.replace('_', ' ') || 'None detected'}
+                </span>
+              </div>
+
+              {/* AI Feedback Section */}
+              <div className="pt-2 border-t border-white/10">
+                <PostureFeedback 
+                  postureData={postureData} 
+                  isVisible={webcamRunning} 
+                  isEmbedded={true}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Collapsed State - REMOVED the middle badge content */}
+          {/* When collapsed, only the header row with dot + button shows */}
+        </div>
+      )}
+
+      {/* Floating UI Controls - Bottom */}
       <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent">
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center gap-4">
+          {/* Main Start/Stop Button */}
           <Button
             onClick={enableCam}
             disabled={!poseLandmarker}
@@ -359,16 +449,26 @@ hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0
             </svg>
             {webcamRunning ? "Stop Analysis" : "Start Analysis"}
           </Button>
-        </div>
 
-        {/* Instructions when active */}
-        {webcamRunning && (
-          <div className="mt-4 text-center">
-            <p className="text-white/80 text-sm backdrop-blur-sm bg-black/30 px-4 py-2 rounded-full inline-block">
-              Red dots show key landmarks • Green lines show connections
-            </p>
-          </div>
-        )}
+          {/* Calibrate Button - Always show when webcam is running and we have posture data */}
+          {webcamRunning && postureData && (
+            <Button
+              onClick={calibrateNeutral}
+              className="px-6 py-4 text-lg rounded-full shadow-lg transition-all duration-300 bg-purple-500/90 hover:bg-purple-600/90 text-white backdrop-blur-sm"
+              size="lg"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"
+                />
+              </svg>
+              Calibrate
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
