@@ -288,8 +288,8 @@ export default function MediaPipePose() {
         <Button
           onClick={() => setShowPomodoro(!showPomodoro)}
           className={`absolute ${showPomodoro ? '-left-12' : '-left-12'} top-1/2 transform -translate-y-1/2 
-            w-10 h-16 rounded-l-xl rounded-r-none bg-gradient-to-b from-orange-500/90 to-red-500/90 
-            hover:from-orange-600/90 hover:to-red-600/90 backdrop-blur-sm border-r-0 
+            w-10 h-16 rounded-l-xl rounded-r-none bg-gradient-to-b from-blue-500/90 to-teal-500/90 
+hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0 
             flex items-center justify-center transition-all duration-300`}
         >
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -333,7 +333,6 @@ export default function MediaPipePose() {
         </div>
       </div>
 
-      {/* Floating UI Controls - Bottom */}
       <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent">
         <div className="flex items-center justify-center">
           <Button
