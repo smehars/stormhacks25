@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { PoseLandmarker, FilesetResolver, DrawingUtils } from "@mediapipe/tasks-vision";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import PomodoroTimer from "./PomodoroTimer";
 
 async function sendLandmarksToBackend(landmarks) {
   const formattedLandmarks = landmarks.map((lm, idx) => ({
@@ -39,6 +40,7 @@ export default function MediaPipePose() {
 
   const [poseLandmarker, setPoseLandmarker] = useState(null);
   const [webcamRunning, setWebcamRunning] = useState(false);
+  const [showPomodoro, setShowPomodoro] = useState(false);
 
   // read/write flag safely inside rAF loop
   const runningRef = useRef(false);
@@ -48,7 +50,7 @@ export default function MediaPipePose() {
 
   const runningModeRef = useRef("IMAGE");
   const lastVideoTimeRef = useRef(-1);
-  let rafId = useRef(null);
+  const rafId = useRef(null);
 
   // Define the landmarks we want to show
   const SELECTED_LANDMARKS = {
@@ -273,6 +275,33 @@ export default function MediaPipePose() {
           </div>
         </div>
       )}
+
+      {/* Floating Pomodoro Timer - Right Side */}
+      <div className="absolute right-6 top-1/2 transform -translate-y-1/2 z-20">
+        <div className={`transition-all duration-300 ease-in-out ${
+          showPomodoro ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+        }`}>
+          {showPomodoro && <PomodoroTimer />}
+        </div>
+        
+        {/* Toggle Button */}
+        <Button
+          onClick={() => setShowPomodoro(!showPomodoro)}
+          className={`absolute ${showPomodoro ? '-left-12' : '-left-12'} top-1/2 transform -translate-y-1/2 
+            w-10 h-16 rounded-l-xl rounded-r-none bg-gradient-to-b from-orange-500/90 to-red-500/90 
+            hover:from-orange-600/90 hover:to-red-600/90 backdrop-blur-sm border-r-0 
+            flex items-center justify-center transition-all duration-300`}
+        >
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" 
+            />
+          </svg>
+        </Button>
+      </div>
 
       {/* Floating UI Controls - Top */}
       <div className="absolute top-0 left-0 right-0 p-6 bg-gradient-to-b from-black/60 to-transparent">
