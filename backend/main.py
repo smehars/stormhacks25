@@ -7,6 +7,7 @@ from utils.posture_analysis import analyze_upper_body, set_neutral_offset, last_
 app = FastAPI(title="Posture Analysis")
 
 origins = [
+    "http://localhost:5173",
     "http://localhost:80",
     "http://localhost",
     "http://localhost:3000",
@@ -24,6 +25,10 @@ app.add_middleware(
 async def root():
     return {"message": "Hello World"}
 #literally everything above is just basic setup for a fastapi server you can find online
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
 
 class Landmark(BaseModel):
     idx: int
