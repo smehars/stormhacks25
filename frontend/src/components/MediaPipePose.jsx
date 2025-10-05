@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useState } from "react";
-import { PoseLandmarker, FilesetResolver, DrawingUtils } from "@mediapipe/tasks-vision";
+import { PoseLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import PostureFeedback from "./PostureFeedback";
+import PostureOverlay from "./PostureOverlay";
 
 async function sendLandmarksToBackend(landmarks) {
   const formattedLandmarks = landmarks.map((lm, idx) => ({
@@ -39,8 +41,10 @@ export default function MediaPipePose() {
 
   const [poseLandmarker, setPoseLandmarker] = useState(null);
   const [webcamRunning, setWebcamRunning] = useState(false);
+  const [postureData, setPostureData] = useState(null);
+  const [showFeedback, setShowFeedback] = useState(true);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
-  // read/write flag safely inside rAF loop
   const runningRef = useRef(false);
   useEffect(() => {
     runningRef.current = webcamRunning;
@@ -50,7 +54,6 @@ export default function MediaPipePose() {
   const lastVideoTimeRef = useRef(-1);
   let rafId = useRef(null);
 
-  // Define the landmarks we want to show
   const SELECTED_LANDMARKS = {
     NOSE: 0,
     LEFT_EAR: 7,
@@ -59,7 +62,6 @@ export default function MediaPipePose() {
     RIGHT_SHOULDER: 12
   };
 
-  // Loading the model via Googles API
   useEffect(() => {
     (async () => {
       const wasm = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
@@ -76,7 +78,6 @@ export default function MediaPipePose() {
     })();
   }, []);
 
-  // Turn off our UI flagg and set the live video stream back to a Image
   const stopCamera = () => {
     setWebcamRunning(false);
     runningModeRef.current = "IMAGE";
@@ -89,6 +90,7 @@ export default function MediaPipePose() {
     }
     const c = canvasRef.current;
     c?.getContext("2d")?.clearRect(0, 0, c.width, c.height);
+    setPostureData(null);
   };
 
   const startCamera = async () => {
@@ -99,7 +101,6 @@ export default function MediaPipePose() {
       const video = videoRef.current;
       video.srcObject = stream;
 
-      // start after metadata so videoWidth/Height are known
       const start = async () => {
         await video.play().catch(() => {});
         predictWebcam();
@@ -124,13 +125,13 @@ export default function MediaPipePose() {
     if (!video || !canvas || !poseLandmarker) return;
     if (!runningRef.current) return;
 
-    // size canvas to the actual video frame
     const vw = video.videoWidth || 480,
       vh = video.videoHeight || 360;
     if (canvas.width !== vw) canvas.width = vw;
     if (canvas.height !== vh) canvas.height = vh;
+    
+    setCanvasSize({ width: vw, height: vh });
 
-    // switch to VIDEO mode once
     if (runningModeRef.current === "IMAGE") {
       runningModeRef.current = "VIDEO";
       await poseLandmarker.setOptions({ runningMode: "VIDEO" });
@@ -141,19 +142,12 @@ export default function MediaPipePose() {
       lastVideoTimeRef.current = video.currentTime;
       const res = await poseLandmarker.detectForVideo(video, ts);
       if (res.landmarks?.length) {
-        // Log only the selected landmarks
         const landmarks = res.landmarks[0];
-        console.log("Selected Landmarks:", {
-          nose: landmarks[SELECTED_LANDMARKS.NOSE],
-          leftEar: landmarks[SELECTED_LANDMARKS.LEFT_EAR],
-          rightEar: landmarks[SELECTED_LANDMARKS.RIGHT_EAR],
-          leftShoulder: landmarks[SELECTED_LANDMARKS.LEFT_SHOULDER],
-          rightShoulder: landmarks[SELECTED_LANDMARKS.RIGHT_SHOULDER]
-        });
-
+        
+        // Send to backend and update posture data
         const analysis = await sendLandmarksToBackend(res.landmarks[0]);
         if (analysis) {
-          console.log("Posture result:", analysis);
+          setPostureData(analysis);
         }
       }
 
@@ -164,30 +158,26 @@ export default function MediaPipePose() {
       if (res.landmarks?.length) {
         const landmarks = res.landmarks[0];
         
-        // Draw only the selected landmarks
         Object.values(SELECTED_LANDMARKS).forEach(index => {
           const landmark = landmarks[index];
           if (landmark && landmark.visibility > 0.5) {
             const x = landmark.x * canvas.width;
             const y = landmark.y * canvas.height;
             
-            // Draw landmark point
             ctx.beginPath();
             ctx.arc(x, y, 6, 0, 2 * Math.PI);
-            ctx.fillStyle = "#EF4444"; // Red
+            ctx.fillStyle = "#EF4444";
             ctx.fill();
-            ctx.strokeStyle = "#FEE2E2"; // Light red border
+            ctx.strokeStyle = "#FEE2E2";
             ctx.lineWidth = 2;
             ctx.stroke();
             
-            // Draw landmark label
             ctx.font = "12px Arial";
             ctx.fillStyle = "yellow";
             ctx.fillText(index.toString(), x + 8, y - 8);
           }
         });
 
-        // Draw connections between specific landmarks
         const drawConnection = (fromIndex, toIndex) => {
           const from = landmarks[fromIndex];
           const to = landmarks[toIndex];
@@ -195,7 +185,7 @@ export default function MediaPipePose() {
             ctx.beginPath();
             ctx.moveTo(from.x * canvas.width, from.y * canvas.height);
             ctx.lineTo(to.x * canvas.width, to.y * canvas.height);
-            ctx.strokeStyle = "#10B981"; // Emerald green
+            ctx.strokeStyle = "#10B981";
             ctx.lineWidth = 3;
             ctx.stroke();
           }
@@ -219,11 +209,8 @@ export default function MediaPipePose() {
             }
         };
 
-        // Draw connections: nose to ears, ears to shoulders
         drawConnection(SELECTED_LANDMARKS.NOSE, SELECTED_LANDMARKS.LEFT_EAR);
         drawConnection(SELECTED_LANDMARKS.NOSE, SELECTED_LANDMARKS.RIGHT_EAR);
-        //drawConnection(SELECTED_LANDMARKS.LEFT_EAR, SELECTED_LANDMARKS.LEFT_SHOULDER);
-        //drawConnection(SELECTED_LANDMARKS.RIGHT_EAR, SELECTED_LANDMARKS.RIGHT_SHOULDER);
         drawConnection(SELECTED_LANDMARKS.LEFT_SHOULDER, SELECTED_LANDMARKS.RIGHT_SHOULDER);
         drawShoulderMidpointToNose();
       }
@@ -255,6 +242,11 @@ export default function MediaPipePose() {
           transform: webcamRunning ? 'scaleX(-1)' : 'none' // Mirror the canvas too
         }}
       />
+
+      {/* Posture Overlay */}
+      {webcamRunning && (
+        <PostureOverlay postureData={postureData} canvasSize={canvasSize} />
+      )}
 
       {/* Dark overlay when camera is off */}
       {!webcamRunning && (
@@ -333,7 +325,6 @@ export default function MediaPipePose() {
           </Button>
         </div>
 
-        {/* Instructions when active */}
         {webcamRunning && (
           <div className="mt-4 text-center">
             <p className="text-white/80 text-sm backdrop-blur-sm bg-black/30 px-4 py-2 rounded-full inline-block">
@@ -341,6 +332,31 @@ export default function MediaPipePose() {
             </p>
           </div>
         )}
+      </div>
+
+      {/* Posture Feedback Panel - Left Side */}
+      <div className="absolute left-6 top-1/2 transform -translate-y-1/2 z-20 max-w-sm">
+        <div className="space-y-3">
+          {/* Toggle Button */}
+          <Button
+            onClick={() => setShowFeedback(!showFeedback)}
+            variant="outline"
+            size="sm"
+            className="bg-black/60 border-white/20 text-white hover:bg-black/80 backdrop-blur-sm"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {showFeedback ? 'Hide' : 'Show'} Feedback
+          </Button>
+
+          {/* Feedback Component */}
+          <PostureFeedback 
+            postureData={postureData} 
+            isVisible={showFeedback && webcamRunning} 
+          />
+        </div>
       </div>
     </div>
   );
