@@ -3,7 +3,6 @@ import { runGeminiText } from "@/gemini/gemini";
 import MediaPipePose from "./components/MediaPipePose.jsx";
 
 function App() {
-<<<<<<< HEAD
   const [showPose, setShowPose] = useState(false);
 
   useEffect(() => {
@@ -17,8 +16,6 @@ function App() {
     })();
   }, []);
 
-=======
->>>>>>> origin/newui
   return (
     <div className="min-h-screen">
       <MediaPipePose />
