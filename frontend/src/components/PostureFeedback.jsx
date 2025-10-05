@@ -63,7 +63,7 @@ export default function PostureFeedback({ postureData, isVisible, isEmbedded = f
     if (postureData && isVisible) {
       // Only generate new feedback every 5 seconds to avoid API spam
       const timeSinceLastUpdate = Date.now() - lastUpdate;
-      if (timeSinceLastUpdate > 10000) {
+      if (timeSinceLastUpdate > 5000) {
         generatePostureFeedback(postureData);
       }
     }
