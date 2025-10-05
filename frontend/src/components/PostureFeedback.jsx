@@ -3,7 +3,7 @@ import { runGeminiText } from "@/gemini/gemini";
 import { Alert, AlertTitle, AlertDescription } from "./ui/alert";
 import { Badge } from "./ui/badge";
 
-export default function PostureFeedback({ postureData, isVisible }) {
+export default function PostureFeedback({ postureData, isVisible, isEmbedded = false }) {
   const [feedback, setFeedback] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
@@ -85,7 +85,7 @@ export default function PostureFeedback({ postureData, isVisible }) {
   return (
     <div className="space-y-3">
       {/* Feedback Alert */}
-      <Alert className={`${getFeedbackStyle()} border backdrop-blur-sm`}>
+      <Alert className={`${getFeedbackStyle()} border backdrop-blur-sm ${isEmbedded ? 'text-xs' : ''}`}>
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
@@ -94,8 +94,12 @@ export default function PostureFeedback({ postureData, isVisible }) {
             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <AlertTitle className="text-sm font-medium">{feedback.assessment}</AlertTitle>
-        <AlertDescription className="text-xs mt-1 leading-relaxed">💡 {feedback.instruction}</AlertDescription>
+        <AlertTitle className={`${isEmbedded ? 'text-xs' : 'text-sm'} font-medium`}>
+          {feedback.assessment}
+        </AlertTitle>
+        <AlertDescription className={`${isEmbedded ? 'text-xs' : 'text-xs'} mt-1 leading-relaxed`}>
+          💡 {feedback.instruction}
+        </AlertDescription>
       </Alert>
 
       {/* Loading Indicator */}

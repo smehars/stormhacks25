@@ -22,7 +22,6 @@ async function sendLandmarksToBackend(landmarks) {
 
     if (response.ok) {
       const data = await response.json();
-      console.log("Posture analysis:", data);
       return data;
     } else {
       console.error("Backend error:", response.status);
@@ -42,7 +41,7 @@ export default function MediaPipePose() {
   const [webcamRunning, setWebcamRunning] = useState(false);
   const [postureData, setPostureData] = useState(null);
   const [showFeedback, setShowFeedback] = useState(true);
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [panelCollapsed, setPanelCollapsed] = useState(false); // Default to expanded (false)
 
   const runningRef = useRef(false);
   useEffect(() => {
@@ -132,8 +131,6 @@ export default function MediaPipePose() {
     if (canvas.width !== vw) canvas.width = vw;
     if (canvas.height !== vh) canvas.height = vh;
     
-    setCanvasSize({ width: vw, height: vh });
-
     if (runningModeRef.current === "IMAGE") {
       runningModeRef.current = "VIDEO";
       await poseLandmarker.setOptions({ runningMode: "VIDEO" });
@@ -149,7 +146,7 @@ export default function MediaPipePose() {
         // Send to backend and update posture data
         const analysis = await sendLandmarksToBackend(res.landmarks[0]);
         if (analysis) {
-          console.log("Posture result:", analysis);
+          //console.log("Posture result:", analysis);
           setPostureData(analysis); // Update state with analysis data
         }
       }
@@ -236,7 +233,7 @@ export default function MediaPipePose() {
       
       if (response.ok) {
         const data = await response.json();
-        console.log("Calibrated neutral offset:", data);
+        //console.log("Calibrated neutral offset:", data);
         // Optionally show a success message
       } else {
         console.error("Calibration failed:", response.status);
@@ -317,88 +314,84 @@ export default function MediaPipePose() {
         </div>
       </div>
 
-      {/* Posture Analysis Panel - Top Left */}
+      {/* Compact Square Posture Panel - Top Left */}
       {webcamRunning && postureData && (
-        <div className="absolute top-24 left-6 w-80 bg-black/70 backdrop-blur-md rounded-xl border border-white/20 p-4 text-white">
-          <div className="flex items-center gap-2 mb-3">
-            <div className={`w-3 h-3 rounded-full ${
-              postureData.state === 'good_posture' ? 'bg-green-500' : 
-              postureData.state === 'bad_posture' ? 'bg-red-500' : 'bg-yellow-500'
-            }`}></div>
-            <h3 className="text-lg font-semibold">Posture Analysis</h3>
+        <div className={`absolute top-24 left-6 bg-black/70 backdrop-blur-md rounded-xl border border-white/20 text-white transition-all duration-300 z-10 ${
+          panelCollapsed ? 'w-16 h-16 p-2' : 'w-80 p-4'
+        }`}>
+          
+          {/* Panel Header with Status Circle and Minimize Button */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-3 h-3 rounded-full ${
+                postureData.state === 'good_posture' ? 'bg-green-500' : 
+                postureData.state === 'bad_posture' ? 'bg-red-500' : 'bg-yellow-500'
+              }`}></div>
+              {!panelCollapsed && <h3 className="text-lg font-semibold">Posture Analysis</h3>}
+            </div>
+            
+            {/* Minimize/Expand Button */}
+            <Button
+              onClick={() => setPanelCollapsed(!panelCollapsed)}
+              variant="ghost"
+              size="sm"
+              className="text-white/70 hover:text-white hover:bg-white/10 h-6 w-6 rounded-full p-0"
+            >
+              {panelCollapsed ? (
+                // Expand icon (plus)
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              ) : (
+                // Minimize icon (minus)
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
+                </svg>
+              )}
+            </Button>
           </div>
           
-          <div className="space-y-3">
-            {/* Posture Status */}
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-white/70">Status:</span>
-              <Badge 
-                variant={postureData.state === 'good_posture' ? 'default' : 'destructive'} 
-                className={`px-2 py-1 ${
-                  postureData.state === 'good_posture' 
-                    ? 'bg-green-500/20 text-green-400 border-green-500/30' 
-                    : postureData.state === 'bad_posture'
-                    ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                    : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-                }`}
-              >
-                {postureData.state?.replace('_', ' ').toUpperCase() || 'UNKNOWN'}
-              </Badge>
-            </div>
-
-            {/* Forward Tilt Angle */}
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-white/70">Forward Tilt:</span>
-              <span className="text-sm font-mono bg-white/10 px-2 py-1 rounded">
-                {postureData.angle_deg}°
-              </span>
-            </div>
-
-            {/* Raw Angle */}
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-white/70">Raw Angle:</span>
-              <span className="text-sm font-mono bg-white/10 px-2 py-1 rounded">
-                {postureData.raw_angle_deg}°
-              </span>
-            </div>
-
-            {/* Shoulder Level */}
-            {postureData.shoulder_level_diff !== null && (
+          {/* Panel Content - Only show when not collapsed */}
+          {!panelCollapsed && (
+            <div className="space-y-3">
+              {/* Posture Status */}
               <div className="flex justify-between items-center">
-                <span className="text-sm text-white/70">Shoulder Level:</span>
-                <span className="text-sm font-mono bg-white/10 px-2 py-1 rounded">
-                  {postureData.shoulder_level_diff}
+                <span className="text-sm text-white/70">Status:</span>
+                <Badge 
+                  variant={postureData.state === 'good_posture' ? 'default' : 'destructive'} 
+                  className={`px-2 py-1 ${
+                    postureData.state === 'good_posture' 
+                      ? 'bg-green-500/20 text-green-400 border-green-500/30' 
+                      : postureData.state === 'bad_posture'
+                      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                      : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                  }`}
+                >
+                  {postureData.state?.replace('_', ' ').toUpperCase() || 'UNKNOWN'}
+                </Badge>
+              </div>
+
+              {/* Issue/Reason */}
+              <div className="pt-2 border-t border-white/10">
+                <span className="text-xs text-white/50">Issue: </span>
+                <span className="text-xs text-white/80 capitalize">
+                  {postureData.reason?.replace('_', ' ') || 'None detected'}
                 </span>
               </div>
-            )}
 
-            {/* Reason */}
-            <div className="pt-2 border-t border-white/10">
-              <span className="text-xs text-white/50">Issue: </span>
-              <span className="text-xs text-white/80 capitalize">
-                {postureData.reason?.replace('_', ' ') || 'None detected'}
-              </span>
-            </div>
-
-            {/* Visual Progress Bar for Forward Tilt */}
-            <div className="pt-2">
-              <div className="flex justify-between text-xs text-white/50 mb-1">
-                <span>Good</span>
-                <span>Forward Tilt</span>
-              </div>
-              <div className="w-full bg-white/10 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    postureData.angle_deg < 5 ? 'bg-green-500' :
-                    postureData.angle_deg < 10 ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}
-                  style={{ 
-                    width: `${Math.min(Math.max((postureData.angle_deg / 20) * 100, 0), 100)}%` 
-                  }}
-                ></div>
+              {/* AI Feedback Section */}
+              <div className="pt-2 border-t border-white/10">
+                <PostureFeedback 
+                  postureData={postureData} 
+                  isVisible={webcamRunning} 
+                  isEmbedded={true}
+                />
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Collapsed State - REMOVED the middle badge content */}
+          {/* When collapsed, only the header row with dot + button shows */}
         </div>
       )}
 
@@ -430,33 +423,8 @@ export default function MediaPipePose() {
             </svg>
             {webcamRunning ? "Stop Analysis" : "Start Analysis"}
           </Button>
-        </div>
-      </div>
 
-      {/* Posture Feedback Panel - Left Side */}
-      <div className="absolute left-6 top-1/2 transform -translate-y-1/2 z-20 max-w-sm">
-        <div className="space-y-3">
-          {/* Toggle Button */}
-          <Button
-            onClick={() => setShowFeedback(!showFeedback)}
-            variant="outline"
-            size="sm"
-            className="bg-black/60 border-white/20 text-white hover:bg-black/80 backdrop-blur-sm"
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {showFeedback ? 'Hide' : 'Show'} Feedback
-          </Button>
-
-          {/* Feedback Component */}
-          <PostureFeedback 
-            postureData={postureData} 
-            isVisible={showFeedback && webcamRunning} 
-          />
-
-          {/* Calibrate Button - Only show when video is running */}
+          {/* Calibrate Button - Always show when webcam is running and we have posture data */}
           {webcamRunning && postureData && (
             <Button
               onClick={calibrateNeutral}
