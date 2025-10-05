@@ -10,7 +10,9 @@ services:
     depends_on:
       - api
   api:
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
