@@ -3,6 +3,37 @@ import { PoseLandmarker, FilesetResolver, DrawingUtils } from "@mediapipe/tasks-
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 
+async function sendLandmarksToBackend(landmarks) {
+  const formattedLandmarks = landmarks.map((lm, idx) => ({
+    idx,
+    x: lm.x,
+    y: lm.y,
+    z: lm.z ?? 0.0,
+    visibility: lm.visibility ?? 1.0,
+  }));
+
+  try {
+    const response = await fetch("http://localhost:8000/analyze_posture", {
+      method: "POST",
+      headers: {"Content-Type": "application/json" },
+      body: JSON.stringify({ landmarks: formattedLandmarks }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log("Posture analysis:", data);
+      return data;
+    } else {
+      console.error("Backend error:", response.status);
+      return null;
+    }
+  } catch (err) {
+    console.error("Failed to send posture data:", err);
+    return null;
+  }
+
+}
+
 export default function MediaPipePose() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -36,13 +67,6 @@ export default function MediaPipePose() {
       setPoseLandmarker(landmarker);
     })();
   }, []);
-
-  useEffect(() => {
-  fetch("http://api:3000/")
-    .then((res) => res.json())
-    .then(console.log)
-    .catch(console.error);
-}, []);
 
   // Turn off our UI flagg and set the live video stream back to a Image
   const stopCamera = () => {
@@ -108,32 +132,10 @@ export default function MediaPipePose() {
     if (lastVideoTimeRef.current !== video.currentTime) {
       lastVideoTimeRef.current = video.currentTime;
       const res = await poseLandmarker.detectForVideo(video, ts);
-      if(res.landmarks?.length){
-        const body = {
-          landmarks: res.landmarks[0].map((lm, idx) => ({
-            idx,
-            x: lm.x,
-            y: lm.y,
-            z: lm.z,
-            visibility: lm.visibility ?? 1.0,
-          })),
-        };
-        try{
-          const response = await fetch("http://api:3000/analyze_posture", {
-            method: "POST",
-            headers: {"Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-
-          if(response.ok) {
-            const data = await response.json();
-            console.log("Posture analysis:", data);
-            // todo: update UI with data.state or data.angle_deg
-          }else{
-            console.error("Backend error:", response.status);
-          }
-        } catch (err){
-          console.error("Failed to send posture data:", err);
+      if (res.landmarks?.length) {
+        const analysis = await sendLandmarksToBackend(res.landmarks[0]);
+        if (analysis) {
+          console.log("Posture result:", analysis);
         }
       }
 
