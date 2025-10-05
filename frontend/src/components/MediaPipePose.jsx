@@ -13,7 +13,7 @@ async function sendLandmarksToBackend(landmarks) {
   }));
 
   try {
-    const response = await fetch("http://localhost:8000/analyze_posture", {
+    const response = await fetch("http://localhost:3000/analyze_posture", {
       method: "POST",
       headers: {"Content-Type": "application/json" },
       body: JSON.stringify({ landmarks: formattedLandmarks }),
@@ -201,12 +201,31 @@ export default function MediaPipePose() {
           }
         };
 
+        const drawShoulderMidpointToNose = () => {
+          const leftShoulder = landmarks[SELECTED_LANDMARKS.LEFT_SHOULDER];
+          const rightShoulder = landmarks[SELECTED_LANDMARKS.RIGHT_SHOULDER];
+          const nose = landmarks[SELECTED_LANDMARKS.NOSE];
+
+          if (leftShoulder && rightShoulder && nose &&
+            leftShoulder.visibility > 0.5 && rightShoulder.visibility > 0.5 && nose.visibility > 0.5) {
+              const midX = (leftShoulder.x + rightShoulder.x) / 2;
+              const midY = (leftShoulder.y + rightShoulder.y) / 2;
+              ctx.beginPath();
+              ctx.moveTo(midX * canvas.width, midY * canvas.height);
+              ctx.lineTo(nose.x * canvas.width, nose.y * canvas.height);
+              ctx.strokeStyle = "#3B82F6";
+              ctx.lineWidth = 3;
+              ctx.stroke();
+            }
+        };
+
         // Draw connections: nose to ears, ears to shoulders
         drawConnection(SELECTED_LANDMARKS.NOSE, SELECTED_LANDMARKS.LEFT_EAR);
         drawConnection(SELECTED_LANDMARKS.NOSE, SELECTED_LANDMARKS.RIGHT_EAR);
-        drawConnection(SELECTED_LANDMARKS.LEFT_EAR, SELECTED_LANDMARKS.LEFT_SHOULDER);
-        drawConnection(SELECTED_LANDMARKS.RIGHT_EAR, SELECTED_LANDMARKS.RIGHT_SHOULDER);
+        //drawConnection(SELECTED_LANDMARKS.LEFT_EAR, SELECTED_LANDMARKS.LEFT_SHOULDER);
+        //drawConnection(SELECTED_LANDMARKS.RIGHT_EAR, SELECTED_LANDMARKS.RIGHT_SHOULDER);
         drawConnection(SELECTED_LANDMARKS.LEFT_SHOULDER, SELECTED_LANDMARKS.RIGHT_SHOULDER);
+        drawShoulderMidpointToNose();
       }
       ctx.restore();
     }
