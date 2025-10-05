@@ -12,7 +12,9 @@ export default function MediaPipePose() {
 
   // read/write flag safely inside rAF loop
   const runningRef = useRef(false);
-  useEffect(() => { runningRef.current = webcamRunning; }, [webcamRunning]);
+  useEffect(() => {
+    runningRef.current = webcamRunning;
+  }, [webcamRunning]);
 
   const runningModeRef = useRef("IMAGE");
   const lastVideoTimeRef = useRef(-1);
@@ -21,9 +23,7 @@ export default function MediaPipePose() {
   // Loading the model via Googles API
   useEffect(() => {
     (async () => {
-      const wasm = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
-      );
+      const wasm = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
       const landmarker = await PoseLandmarker.createFromOptions(wasm, {
         baseOptions: {
           modelAssetPath:
@@ -79,15 +79,15 @@ export default function MediaPipePose() {
     else startCamera();
   };
 
-
-  // 
   const predictWebcam = async () => {
-    const video = videoRef.current, canvas = canvasRef.current;
+    const video = videoRef.current,
+      canvas = canvasRef.current;
     if (!video || !canvas || !poseLandmarker) return;
     if (!runningRef.current) return;
 
     // size canvas to the actual video frame
-    const vw = video.videoWidth || 480, vh = video.videoHeight || 360;
+    const vw = video.videoWidth || 480,
+      vh = video.videoHeight || 360;
     if (canvas.width !== vw) canvas.width = vw;
     if (canvas.height !== vh) canvas.height = vh;
 
@@ -109,9 +109,16 @@ export default function MediaPipePose() {
 
       if (res.landmarks?.length) {
         for (const lm of res.landmarks) {
-          // class static: guaranteed to exist in JS API
-          utils.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, { lineWidth: 2 });
-          utils.drawLandmarks(lm, { radius: 3 });
+          // Enhanced drawing with better colors
+          utils.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, {
+            color: "#10B981", // Emerald green
+            lineWidth: 3,
+          });
+          utils.drawLandmarks(lm, {
+            color: "#EF4444", // Red
+            radius: 4,
+            fillColor: "#FEE2E2", // Light red fill
+          });
         }
       }
       ctx.restore();
@@ -121,41 +128,124 @@ export default function MediaPipePose() {
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-center">MediaPipe Pose Detection</h2>
+    <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <div className="w-16 h-16 mx-auto bg-gradient-to-br from-teal-500 to-blue-500 rounded-2xl flex items-center justify-center mb-4">
+          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
+        <h2 className="text-3xl font-bold text-slate-800 mb-2">Live Posture Analysis</h2>
+        <p className="text-slate-600">Position yourself in front of the camera for real-time posture tracking</p>
+      </div>
 
-      <div className="mb-4 text-center">
-        <Button onClick={enableCam} disabled={!poseLandmarker} variant={webcamRunning ? "destructive" : "default"} size="lg">
-          {webcamRunning ? "DISABLE PREDICTIONS" : "ENABLE PREDICTIONS"}
+      {/* Control Button */}
+      <div className="text-center mb-8">
+        <Button
+          onClick={enableCam}
+          disabled={!poseLandmarker}
+          className={`px-8 py-4 text-lg rounded-full shadow-lg transition-all duration-300 ${
+            webcamRunning
+              ? "bg-red-500 hover:bg-red-600 text-white"
+              : "bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 text-white"
+          }`}
+          size="lg"
+        >
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {webcamRunning ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            ) : (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            )}
+          </svg>
+          {webcamRunning ? "Stop Analysis" : "Start Analysis"}
         </Button>
       </div>
 
-      <div className="relative flex justify-center mb-4">
-        <div className="relative border-2 border-gray-300 rounded-lg overflow-hidden shadow-lg">
-          <video
-            ref={videoRef}
-            muted
-            playsInline
-            autoPlay
-            style={{ width: 480, height: 360, display: "block", background: "#000" }}
-          />
+      {/* Video Container */}
+      <div className="relative flex justify-center mb-6">
+        <div className="relative bg-gradient-to-br from-slate-900 to-slate-700 rounded-2xl overflow-hidden shadow-2xl">
+          <video ref={videoRef} muted playsInline autoPlay style={{ width: 640, height: 480, display: "block" }} className="rounded-2xl" />
           <canvas
             ref={canvasRef}
             style={{
               position: "absolute",
               inset: 0,
-              width: 480,
-              height: 360,
+              width: 640,
+              height: 480,
               pointerEvents: "none",
             }}
+            className="rounded-2xl"
           />
+
+          {/* Overlay when camera is off */}
+          {!webcamRunning && (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-800 rounded-2xl">
+              <div className="text-center text-white">
+                <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                <p className="text-lg opacity-75">Camera Preview</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-center gap-4">
-        <Badge variant={webcamRunning ? "default" : "secondary"}>Status: {webcamRunning ? "Running" : "Stopped"}</Badge>
-        <Badge variant={poseLandmarker ? "default" : "outline"}>Model: {poseLandmarker ? "Ready" : "Loading..."}</Badge>
+      {/* Status Indicators */}
+      <div className="flex items-center justify-center gap-6">
+        <div className="flex items-center gap-2">
+          <div className={`w-3 h-3 rounded-full ${webcamRunning ? "bg-green-500" : "bg-red-500"}`}></div>
+          <Badge variant={webcamRunning ? "default" : "secondary"} className="px-3 py-1">
+            {webcamRunning ? "Recording" : "Stopped"}
+          </Badge>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className={`w-3 h-3 rounded-full ${poseLandmarker ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`}></div>
+          <Badge variant={poseLandmarker ? "default" : "outline"} className="px-3 py-1">
+            AI Model: {poseLandmarker ? "Ready" : "Loading..."}
+          </Badge>
+        </div>
       </div>
+
+      {/* Instructions */}
+      {webcamRunning && (
+        <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <div>
+              <h4 className="font-medium text-blue-900 mb-1">Analysis Active</h4>
+              <p className="text-blue-700 text-sm">
+                Green lines show your skeletal structure. Red dots indicate key body landmarks. Maintain good posture for optimal tracking.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
