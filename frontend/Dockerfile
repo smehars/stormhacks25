@@ -1,7 +1,7 @@
-From node:18 AS build
+From node:18 
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm i
 COPY . .
-RUN npm run build
-
+EXPOSE 5173 
+CMD ["npm", "run", "dev", "--", "--host"]
