@@ -33,35 +33,59 @@ RIGHT_EAR = 8
 def find_landmark(landmarks: List[dict], idx: int):
     return next((p for p in landmarks if p["idx"] == idx), None)
 
-def check_vis(lm:Dict) -> bool: ##come back to this might be wrong, feel like if it detects one bad vis, it will return none
-    return lm is not None and lm.get("visibility", 1.0) >= VISIBILITY_THRESHOLD
+def check_vis(lm: Optional[Dict]) -> bool: ##come back to this might be wrong, feel like if it detects one bad vis, it will return none
+    return lm is not None and lm.get("visibility", 0.0) >= VISIBILITY_THRESHOLD
 
-def raw_head_angle_degrees(landmarks: List[Dict]) -> Optional[float]:
+def raw_head_angle_degrees(landmarks: List[Dict]) -> Optional[Dict[str, float]]:
 
     ls = find_landmark(landmarks, LEFT_SHOULDER)
     rs = find_landmark(landmarks, RIGHT_SHOULDER)
     nose = find_landmark(landmarks, NOSE)
-    #le = find_landmark(landmarks, LEFT_EAR)
-    #re = find_landmark(landmarks, RIGHT_EAR)
+    le = find_landmark(landmarks, LEFT_EAR)
+    re = find_landmark(landmarks, RIGHT_EAR)
 
     if not (check_vis(ls) and check_vis(rs) and check_vis(nose)): #and (check_vis(le) or check_vis(re))):
         return None
     
     sx = (ls["x"] + rs["x"]) / 2.0
     sy = (ls["y"] + rs["y"]) / 2.0  
-    #remember to add ears
-    nx = nose["x"]
-    ny = nose["y"]
 
-    dx = nx - sx
-    dy = ny - sy
-#calculates how much your neck is tilted forward
+    #collect head points
+    head_points = []
+    if check_vis(nose):
+        head_points.append((nose["x"], nose["y"]))
+    if check_vis(le):
+        head_points.append((le["x"], le["y"]))
+    if check_vis(re):
+        head_points.append((re["x"], re["y"]))
+    if not head_points:
+        return None
+    
+    #average head point for ear and nose, this makes it more stable and reduce noise
+    hx = sum(p[0] for p in head_points) / len(head_points)
+    hy = sum(p[1] for p in head_points) / len(head_points)
+
+    #calculate roll (left and right tilt of head)
+    dx = hx - sx
+    dy = hy - sy
     if dy == 0:
-        dy = 1e-6 #prevent div by 0, due to the math formula below
+        dy = 1e-6 #so we dont divide by zero
 
-    angle_rad = math.atan2(dx, dy)  
+     #calculate angle of neck tilt 
+    angle_rad = math.atan2(dx, dy)
     angle_deg = math.degrees(angle_rad)
-    return angle_deg
+   
+    #calculate the pitch to forward and back (gamer neck)
+    dy_pitch = sy - hy
+    if dy_pitch == 0:
+        dy_pitch = 1e-6
+    pitch_rad = math.atan2(dy_pitch, 1.0)
+    pitch_deg = math.degrees(pitch_rad)
+
+    return {
+        "side_tilt_deg": angle_deg,
+        "forward_tilt_deg": pitch_deg
+    }
 
 #calc shoulder tilt
 def shoulder_angle_difference(landmarks: List[Dict]) -> Optional[float]:
@@ -93,7 +117,7 @@ def analyze_upper_body(landmarks: List[dict]) -> Dict:
     if raw_angle is None:
         return {"error": "insufficient landmarks visibility"}
     
-    adj_angle = raw_angle - neutral_offset
+    adj_angle = raw_angle["forward_tilt_deg"] - neutral_offset
 
     with buffer_lock:
         angle_buffer.append(adj_angle)
@@ -120,7 +144,7 @@ def analyze_upper_body(landmarks: List[dict]) -> Dict:
 
     response = {
         "angle_deg": round(smooth, 2),
-        "raw_angle_deg": round(raw_angle, 2),
+        "raw_angle_deg": round(raw_angle["forward_tilt_deg"], 2),
         "state": current_state,
         "reason": reason,
         "shoulder_level_diff": round(shoulder_diff, 4) if shoulder_diff is not None else None
