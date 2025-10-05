@@ -204,7 +204,7 @@ export default function MediaPipePose() {
               ctx.beginPath();
               ctx.moveTo(midX * canvas.width, midY * canvas.height);
               ctx.lineTo(nose.x * canvas.width, nose.y * canvas.height);
-              ctx.strokeStyle = "#3B82F6";
+              ctx.strokeStyle = "#10B981";
               ctx.lineWidth = 3;
               ctx.stroke();
             }
@@ -295,8 +295,8 @@ export default function MediaPipePose() {
         <Button
           onClick={() => setShowPomodoro(!showPomodoro)}
           className={`absolute ${showPomodoro ? '-left-12' : '-left-12'} top-1/2 transform -translate-y-1/2 
-            w-10 h-16 rounded-l-xl rounded-r-none bg-gradient-to-b from-blue-500/90 to-teal-500/90 
-hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0 
+            w-10 h-16 rounded-l-xl rounded-r-none bg-gradient-to-b from-green-500/90 to-emerald-500/90 
+    hover:from-green-600/90 hover:to-emerald-600/90 hover:backdrop-blur-sm border-r-0 
             flex items-center justify-center transition-all duration-300`}
         >
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -315,7 +315,7 @@ hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0
         <div className="flex items-center justify-between">
           {/* Logo/Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-blue-500 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-br from-grey-400 to-black-500 rounded-xl flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -325,7 +325,7 @@ hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0
                 />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-white">Lock In</h1>
+            <h1 className="text-2xl font-bold text-white">LockedIn</h1>
           </div>
 
           {/* Status Indicators */}
@@ -431,7 +431,7 @@ hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0
             className={`px-8 py-4 text-lg rounded-full shadow-lg transition-all duration-300 ${
               webcamRunning
                 ? "bg-red-500/90 hover:bg-red-600/90 text-white backdrop-blur-sm"
-                : "bg-gradient-to-r from-teal-500/90 to-blue-500/90 hover:from-teal-600/90 hover:to-blue-600/90 text-white backdrop-blur-sm"
+                : "bg-gradient-to-r from-green-500/90 to-emerald-500/90 hover:from-green-600/90 hover:to-emerald-600/90 text-white backdrop-blur-sm"
             }`}
             size="lg"
           >
@@ -454,7 +454,7 @@ hover:from-blue-600/90 hover:to-teal-600/90 hover:backdrop-blur-sm border-r-0
           {webcamRunning && postureData && (
             <Button
               onClick={calibrateNeutral}
-              className="px-6 py-4 text-lg rounded-full shadow-lg transition-all duration-300 bg-purple-500/90 hover:bg-purple-600/90 text-white backdrop-blur-sm"
+              className="px-6 py-4 text-lg rounded-full shadow-lg transition-all duration-300 bg-gradient-to-r from-green-500/90 to-emerald-500/90 hover:from-green-600/90 hover:to-emerald-600/90 text-white backdrop-blur-sm"
               size="lg"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
