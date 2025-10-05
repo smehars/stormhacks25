@@ -39,6 +39,7 @@ export default function MediaPipePose() {
 
   const [poseLandmarker, setPoseLandmarker] = useState(null);
   const [webcamRunning, setWebcamRunning] = useState(false);
+  const [postureData, setPostureData] = useState(null); // Add this state
 
   // read/write flag safely inside rAF loop
   const runningRef = useRef(false);
@@ -66,11 +67,14 @@ export default function MediaPipePose() {
       const landmarker = await PoseLandmarker.createFromOptions(wasm, {
         baseOptions: {
           modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task",
           delegate: "GPU",
         },
-        runningMode: "IMAGE",
-        numPoses: 2,
+        runningMode: "VIDEO", // Start in VIDEO mode
+        numPoses: 1,
+        minPoseDetectionConfidence: 0.3,
+        minPosePresenceConfidence: 0.3,
+        minTrackingConfidence: 0.8,
       });
       setPoseLandmarker(landmarker);
     })();
@@ -130,12 +134,6 @@ export default function MediaPipePose() {
     if (canvas.width !== vw) canvas.width = vw;
     if (canvas.height !== vh) canvas.height = vh;
 
-    // switch to VIDEO mode once
-    if (runningModeRef.current === "IMAGE") {
-      runningModeRef.current = "VIDEO";
-      await poseLandmarker.setOptions({ runningMode: "VIDEO" });
-    }
-
     const ts = performance.now();
     if (lastVideoTimeRef.current !== video.currentTime) {
       lastVideoTimeRef.current = video.currentTime;
@@ -154,6 +152,7 @@ export default function MediaPipePose() {
         const analysis = await sendLandmarksToBackend(res.landmarks[0]);
         if (analysis) {
           console.log("Posture result:", analysis);
+          setPostureData(analysis); // Update state with analysis data
         }
       }
 
@@ -191,7 +190,7 @@ export default function MediaPipePose() {
         const drawConnection = (fromIndex, toIndex) => {
           const from = landmarks[fromIndex];
           const to = landmarks[toIndex];
-          if (from && to && from.visibility > 0.5 && to.visibility > 0.5) {
+          if (from && to && from.visibility > 0.7 && to.visibility > 0.7) {
             ctx.beginPath();
             ctx.moveTo(from.x * canvas.width, from.y * canvas.height);
             ctx.lineTo(to.x * canvas.width, to.y * canvas.height);
@@ -207,7 +206,7 @@ export default function MediaPipePose() {
           const nose = landmarks[SELECTED_LANDMARKS.NOSE];
 
           if (leftShoulder && rightShoulder && nose &&
-            leftShoulder.visibility > 0.5 && rightShoulder.visibility > 0.5 && nose.visibility > 0.5) {
+            leftShoulder.visibility > 0.7 && rightShoulder.visibility > 0.7 && nose.visibility > 0.7) {
               const midX = (leftShoulder.x + rightShoulder.x) / 2;
               const midY = (leftShoulder.y + rightShoulder.y) / 2;
               ctx.beginPath();
@@ -231,6 +230,29 @@ export default function MediaPipePose() {
     }
 
     if (runningRef.current) rafId.current = requestAnimationFrame(predictWebcam);
+  };
+
+  // Add calibrate function
+  const calibrateNeutral = async () => {
+    if (!postureData?.raw_angle_deg) return;
+    
+    try {
+      const response = await fetch("http://localhost:3000/calibrate", {
+        method: "POST",
+        headers: {"Content-Type": "application/json" },
+        body: JSON.stringify({ angle_deg: postureData.raw_angle_deg }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Calibrated neutral offset:", data);
+        // Optionally show a success message
+      } else {
+        console.error("Calibration failed:", response.status);
+      }
+    } catch (err) {
+      console.error("Failed to calibrate:", err);
+    }
   };
 
   return (
@@ -289,7 +311,7 @@ export default function MediaPipePose() {
                 />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-white">PosturePal</h1>
+            <h1 className="text-2xl font-bold text-white">Lock In</h1>
           </div>
 
           {/* Status Indicators */}
@@ -304,9 +326,95 @@ export default function MediaPipePose() {
         </div>
       </div>
 
+      {/* Posture Analysis Panel - Top Left */}
+      {webcamRunning && postureData && (
+        <div className="absolute top-24 left-6 w-80 bg-black/70 backdrop-blur-md rounded-xl border border-white/20 p-4 text-white">
+          <div className="flex items-center gap-2 mb-3">
+            <div className={`w-3 h-3 rounded-full ${
+              postureData.state === 'good_posture' ? 'bg-green-500' : 
+              postureData.state === 'bad_posture' ? 'bg-red-500' : 'bg-yellow-500'
+            }`}></div>
+            <h3 className="text-lg font-semibold">Posture Analysis</h3>
+          </div>
+          
+          <div className="space-y-3">
+            {/* Posture Status */}
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-white/70">Status:</span>
+              <Badge 
+                variant={postureData.state === 'good_posture' ? 'default' : 'destructive'} 
+                className={`px-2 py-1 ${
+                  postureData.state === 'good_posture' 
+                    ? 'bg-green-500/20 text-green-400 border-green-500/30' 
+                    : postureData.state === 'bad_posture'
+                    ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                    : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                }`}
+              >
+                {postureData.state?.replace('_', ' ').toUpperCase() || 'UNKNOWN'}
+              </Badge>
+            </div>
+
+            {/* Forward Tilt Angle */}
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-white/70">Forward Tilt:</span>
+              <span className="text-sm font-mono bg-white/10 px-2 py-1 rounded">
+                {postureData.angle_deg}°
+              </span>
+            </div>
+
+            {/* Raw Angle */}
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-white/70">Raw Angle:</span>
+              <span className="text-sm font-mono bg-white/10 px-2 py-1 rounded">
+                {postureData.raw_angle_deg}°
+              </span>
+            </div>
+
+            {/* Shoulder Level */}
+            {postureData.shoulder_level_diff !== null && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-white/70">Shoulder Level:</span>
+                <span className="text-sm font-mono bg-white/10 px-2 py-1 rounded">
+                  {postureData.shoulder_level_diff}
+                </span>
+              </div>
+            )}
+
+            {/* Reason */}
+            <div className="pt-2 border-t border-white/10">
+              <span className="text-xs text-white/50">Issue: </span>
+              <span className="text-xs text-white/80 capitalize">
+                {postureData.reason?.replace('_', ' ') || 'None detected'}
+              </span>
+            </div>
+
+            {/* Visual Progress Bar for Forward Tilt */}
+            <div className="pt-2">
+              <div className="flex justify-between text-xs text-white/50 mb-1">
+                <span>Good</span>
+                <span>Forward Tilt</span>
+              </div>
+              <div className="w-full bg-white/10 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    postureData.angle_deg < 5 ? 'bg-green-500' :
+                    postureData.angle_deg < 10 ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}
+                  style={{ 
+                    width: `${Math.min(Math.max((postureData.angle_deg / 20) * 100, 0), 100)}%` 
+                  }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating UI Controls - Bottom */}
       <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent">
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center gap-4">
+          {/* Main Start/Stop Button */}
           <Button
             onClick={enableCam}
             disabled={!poseLandmarker}
@@ -331,16 +439,26 @@ export default function MediaPipePose() {
             </svg>
             {webcamRunning ? "Stop Analysis" : "Start Analysis"}
           </Button>
-        </div>
 
-        {/* Instructions when active */}
-        {webcamRunning && (
-          <div className="mt-4 text-center">
-            <p className="text-white/80 text-sm backdrop-blur-sm bg-black/30 px-4 py-2 rounded-full inline-block">
-              Red dots show key landmarks • Green lines show connections
-            </p>
-          </div>
-        )}
+          {/* Calibrate Button - Only show when video is running */}
+          {webcamRunning && postureData && (
+            <Button
+              onClick={calibrateNeutral}
+              className="px-6 py-4 text-lg rounded-full shadow-lg transition-all duration-300 bg-purple-500/90 hover:bg-purple-600/90 text-white backdrop-blur-sm"
+              size="lg"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"
+                />
+              </svg>
+              Calibrate
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
