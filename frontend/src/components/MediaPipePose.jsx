@@ -31,7 +31,6 @@ async function sendLandmarksToBackend(landmarks) {
     console.error("Failed to send posture data:", err);
     return null;
   }
-
 }
 
 export default function MediaPipePose() {
@@ -50,6 +49,15 @@ export default function MediaPipePose() {
   const runningModeRef = useRef("IMAGE");
   const lastVideoTimeRef = useRef(-1);
   let rafId = useRef(null);
+
+  // Define the landmarks we want to show
+  const SELECTED_LANDMARKS = {
+    NOSE: 0,
+    LEFT_EAR: 7,
+    RIGHT_EAR: 8,
+    LEFT_SHOULDER: 11,
+    RIGHT_SHOULDER: 12
+  };
 
   // Loading the model via Googles API
   useEffect(() => {
@@ -133,6 +141,16 @@ export default function MediaPipePose() {
       lastVideoTimeRef.current = video.currentTime;
       const res = await poseLandmarker.detectForVideo(video, ts);
       if (res.landmarks?.length) {
+        // Log only the selected landmarks
+        const landmarks = res.landmarks[0];
+        console.log("Selected Landmarks:", {
+          nose: landmarks[SELECTED_LANDMARKS.NOSE],
+          leftEar: landmarks[SELECTED_LANDMARKS.LEFT_EAR],
+          rightEar: landmarks[SELECTED_LANDMARKS.RIGHT_EAR],
+          leftShoulder: landmarks[SELECTED_LANDMARKS.LEFT_SHOULDER],
+          rightShoulder: landmarks[SELECTED_LANDMARKS.RIGHT_SHOULDER]
+        });
+
         const analysis = await sendLandmarksToBackend(res.landmarks[0]);
         if (analysis) {
           console.log("Posture result:", analysis);
@@ -140,23 +158,55 @@ export default function MediaPipePose() {
       }
 
       const ctx = canvas.getContext("2d");
-      const utils = new DrawingUtils(ctx);
       ctx.save();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (res.landmarks?.length) {
-        for (const lm of res.landmarks) {
-          // Enhanced drawing with better colors
-          utils.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, {
-            color: "#10B981", // Emerald green
-            lineWidth: 3,
-          });
-          utils.drawLandmarks(lm, {
-            color: "#EF4444", // Red
-            radius: 4,
-            fillColor: "#FEE2E2", // Light red fill
-          });
-        }
+        const landmarks = res.landmarks[0];
+        
+        // Draw only the selected landmarks
+        Object.values(SELECTED_LANDMARKS).forEach(index => {
+          const landmark = landmarks[index];
+          if (landmark && landmark.visibility > 0.5) {
+            const x = landmark.x * canvas.width;
+            const y = landmark.y * canvas.height;
+            
+            // Draw landmark point
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = "#EF4444"; // Red
+            ctx.fill();
+            ctx.strokeStyle = "#FEE2E2"; // Light red border
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw landmark label
+            ctx.font = "12px Arial";
+            ctx.fillStyle = "yellow";
+            ctx.fillText(index.toString(), x + 8, y - 8);
+          }
+        });
+
+        // Draw connections between specific landmarks
+        const drawConnection = (fromIndex, toIndex) => {
+          const from = landmarks[fromIndex];
+          const to = landmarks[toIndex];
+          if (from && to && from.visibility > 0.5 && to.visibility > 0.5) {
+            ctx.beginPath();
+            ctx.moveTo(from.x * canvas.width, from.y * canvas.height);
+            ctx.lineTo(to.x * canvas.width, to.y * canvas.height);
+            ctx.strokeStyle = "#10B981"; // Emerald green
+            ctx.lineWidth = 3;
+            ctx.stroke();
+          }
+        };
+
+        // Draw connections: nose to ears, ears to shoulders
+        drawConnection(SELECTED_LANDMARKS.NOSE, SELECTED_LANDMARKS.LEFT_EAR);
+        drawConnection(SELECTED_LANDMARKS.NOSE, SELECTED_LANDMARKS.RIGHT_EAR);
+        drawConnection(SELECTED_LANDMARKS.LEFT_EAR, SELECTED_LANDMARKS.LEFT_SHOULDER);
+        drawConnection(SELECTED_LANDMARKS.RIGHT_EAR, SELECTED_LANDMARKS.RIGHT_SHOULDER);
+        drawConnection(SELECTED_LANDMARKS.LEFT_SHOULDER, SELECTED_LANDMARKS.RIGHT_SHOULDER);
       }
       ctx.restore();
     }
@@ -277,7 +327,7 @@ export default function MediaPipePose() {
             <div>
               <h4 className="font-medium text-blue-900 mb-1">Analysis Active</h4>
               <p className="text-blue-700 text-sm">
-                Green lines show your skeletal structure. Red dots indicate key body landmarks. Maintain good posture for optimal tracking.
+                Red dots show key landmarks with green connecting lines.
               </p>
             </div>
           </div>
