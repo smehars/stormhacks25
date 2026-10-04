@@ -1,6 +1,6 @@
 services:
   web:
-    build: 
+    build:
       context: ./frontend
       dockerfile: Dockerfile
     command: npm run dev -- --host
@@ -11,21 +11,3 @@ services:
       - CHOKIDAR_USEPOLLING=true
     ports:
       - "5173:5173"
-    depends_on:
-      api:
-        condition: service_healthy
-  api:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
-    volumes:
-      - ./backend:/app
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=development
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
